@@ -23,8 +23,15 @@ namespace Ogsn.Network.Internal
         {
             get
             {
-                if (_tcpClient != null)
+                if (_tcpClient != null && _stream != null)
+                {
+                    //try
+                    //{
+                    //    WriteData(_stream, new byte[] { 0x04 });
+                    //}
+                    //catch { return false; }
                     return _tcpClient.Connected;
+                }
                 return false;
             }
         }
@@ -94,110 +101,110 @@ namespace Ogsn.Network.Internal
             NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Disconnected));
         }
 
-        public void Send(byte[] data, Action<byte[]> getAction)
+        public bool Send(byte[] data, Action<byte[]> getAction)
         {
-            if (IsConnected)
+            if (!IsConnected)
+                return false;
+
+            try
             {
-                _ = Task.Run(async () =>
+                WriteData(_stream, data);
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Sended));
+            }
+            catch (Exception exp)
+            {
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(exp));
+                return false;
+            }
+
+            // Wait for response async
+            if (getAction != null)
+            {
+                _ = Task.Run(() =>
                 {
                     try
                     {
-                        await Task.Run(() => WriteData(_stream, data));
-                        NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Sended));
+                        var res = ReadData(_stream);
+                        NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
+                        getAction(res);
                     }
                     catch (Exception exp)
                     {
-                        NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(exp));
-                    }
-
-                    if (getAction != null)
-                    {
-                        try
-                        {
-                            var res = await Task.Run(() => ReadData(_stream));
-                            NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
-                            getAction(res);
-                        }
-                        catch (Exception exp)
-                        {
-                            NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseError(exp));
-                        }
+                        NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseError(exp));
                     }
                 });
             }
+            return true;
         }
 
         byte[] ReadData(Stream stream)
         {
-            try
-            {
-                using (var reader = new BinaryReader(stream, Encoding, true))
-                {
-                    // read data length
-                    var length = reader.ReadInt32();
+            using var reader = new BinaryReader(stream, Encoding, true);
 
-                    // read data
-                    byte[] buffer = new byte[length];
-                    int readPosition = 0;
-                    do
-                    {
-                        var readData = reader.ReadBytes(length);
-                        Array.Copy(readData, 0, buffer, readPosition, readData.Length);
-                        readPosition += readData.Length;
-                    }
-                    while (readPosition < length);
-                    return buffer;
-                }
+            // read data length
+            var length = reader.ReadInt32();
+
+            // read data
+            byte[] buffer = new byte[length];
+            int readPosition = 0;
+            do
+            {
+                var readData = reader.ReadBytes(length);
+                Array.Copy(readData, 0, buffer, readPosition, readData.Length);
+                readPosition += readData.Length;
             }
-            catch (Exception exp) { throw exp; };
+            while (readPosition < length);
+            return buffer;
         }
 
         void WriteData(Stream stream, byte[] data)
         {
-            try
-            {
-                using (var writer = new BinaryWriter(stream, Encoding, true))
-                {
-                    // write data length
-                    writer.Write((uint)data.Length);
+            using var writer = new BinaryWriter(stream, Encoding, true);
 
-                    // write data
-                    writer.Write(data);
-                }
-            }
-            catch (Exception exp) { throw exp; };
+            // write data length
+            writer.Write((uint)data.Length);
+
+            // write data
+            writer.Write(data);
         }
 
         async Task ConnectionLoop(CancellationToken cancellationToken)
         {
             do
             {
-                if (_tcpClient == null || _tcpClient.Connected == false)
+                try
                 {
-                    try
+                    if (_tcpClient == null || _tcpClient.Connected == false)
                     {
-                        // Cleate new TCP client instance
-                        _tcpClient = new TcpClient();
-                        await _tcpClient.ConnectAsync(_targetEndPoint.Address, _targetEndPoint.Port);
-                        NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Connected));
-
-                        // Get stream
-                        if (_stream != null)
+                        try
                         {
-                            _stream?.Close();
-                            _stream?.Dispose();
-                            _stream = null;
-                        }
-                        _stream = _tcpClient.GetStream();
-                        _stream.ReadTimeout = ResponseTimeout;
-                    }
-                    catch (Exception exp)
-                    {
-                        NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(exp));
-                    }
-                }
+                            // Cleate new TCP client instance
+                            _tcpClient = new TcpClient();
+                            await _tcpClient.ConnectAsync(_targetEndPoint.Address, _targetEndPoint.Port);
+                            NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Connected));
 
-                await Task.Delay(_retryConnectionInterval, cancellationToken);
+                            // Get stream
+                            if (_stream != null)
+                            {
+                                _stream?.Close();
+                                _stream?.Dispose();
+                                _stream = null;
+                            }
+                            _stream = _tcpClient.GetStream();
+                            _stream.ReadTimeout = ResponseTimeout;
+                        }
+                        catch (Exception exp)
+                        {
+                            NotifyClientEvent?.Invoke(this, ClientEventArgs.ConnectionError(exp));
+                        }
+                    }
+
+                    await Task.Delay(_retryConnectionInterval, cancellationToken);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
             }
             while (cancellationToken.IsCancellationRequested == false && _isConnectionIntermittently);
         }

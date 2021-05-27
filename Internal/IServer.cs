@@ -8,12 +8,12 @@ namespace Ogsn.Network.Internal
         void Open(int listenPort);
         void Close();
 
-        bool isOpened { get; }
-        Protocol protocol { get; }
+        bool IsOpened { get; }
+        Protocol Protocol { get; }
 
         Encoding Encoding { get; set; }
 
-        Func<byte[], byte[]> receiveFunction { get; set; }
+        Func<byte[], byte[]> ReceiveFunction { get; set; }
 
         event EventHandler<ServerEventArgs> NotifyServerEvent;
     }

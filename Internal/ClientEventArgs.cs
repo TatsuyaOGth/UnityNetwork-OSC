@@ -18,6 +18,11 @@ namespace Ogsn.Network.Internal
             return new ClientEventArgs(type, null);
         }
 
+        public static ClientEventArgs ConnectionError(Exception exception)
+        {
+            return new ClientEventArgs(ClientEventType.ConnectionError, exception);
+        }
+
         public static ClientEventArgs SendError(Exception exception)
         {
             return new ClientEventArgs(ClientEventType.SendError, exception);

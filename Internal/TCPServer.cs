@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -12,16 +13,16 @@ namespace Ogsn.Network.Internal
 {
     public class TCPServer : IServer
     {
-        public Func<byte[], byte[]> receiveFunction { get; set; }
+        public Func<byte[], byte[]> ReceiveFunction { get; set; }
 
-        public Protocol protocol
+        public Protocol Protocol
         {
             get { return Protocol.TCP; }
         }
 
-        public bool isOpened
+        public bool IsOpened
         {
-            get { return tcpListener != null; }
+            get { return _tcpListener != null; }
         }
 
         public Encoding Encoding { get; set; } = Encoding.ASCII;
@@ -29,9 +30,10 @@ namespace Ogsn.Network.Internal
         // Events
         public event EventHandler<ServerEventArgs> NotifyServerEvent;
 
-        TcpListener tcpListener;
-        Task receiveTask;
-        CancellationTokenSource cancelTokenSource;
+        TcpListener _tcpListener;
+        Task _receiveTask;
+        List<Task> _streamingTasks = new List<Task>();
+        CancellationTokenSource _cancelTokenSource;
 
 
         // Socket error code
@@ -43,176 +45,206 @@ namespace Ogsn.Network.Internal
         public void Open(int listenPort)
         {
             // close if listener arrived
-            if (tcpListener != null)
+            if (_tcpListener != null)
             {
                 Close();
             }
 
+            // initialize receiver
+            NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Opening));
+            var endPoint = new IPEndPoint(IPAddress.Any, listenPort);
+            _tcpListener = new TcpListener(endPoint);
+            _tcpListener.Start();
+            NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Opened));
+
             // start receive thread
-            cancelTokenSource = new CancellationTokenSource();
-            receiveTask = Task.Run(() => ReceiveTask(listenPort, cancelTokenSource.Token));
+            _cancelTokenSource = new CancellationTokenSource();
+            _receiveTask = Task.Run(() => ReceiveTask(_cancelTokenSource.Token));
         }
 
         public void Close()
         {
-            if (tcpListener != null)
+            if (_tcpListener != null)
             {
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Closing));
-                // stop receive thread
-                cancelTokenSource?.Cancel();
-                tcpListener?.Stop();
 
-                // waiting for the thread stopped
-                receiveTask.Wait();
-                receiveTask.Dispose();
-                receiveTask = null;
+                _cancelTokenSource?.Cancel();
+
+                // waiting for streaming thread end
+                if (_streamingTasks.Count > 0)
+                {
+                    try
+                    {
+                        Task.WaitAll(_streamingTasks.ToArray(), 1000);
+                        _streamingTasks.ForEach(task => task.Dispose());
+                        _streamingTasks.Clear();
+                    }
+                    catch (Exception exp)
+                    {
+                        NotifyServerEvent?.Invoke(this, ServerEventArgs.Disconnected(exp));
+                    }
+                }
+
+                // waiting for receiver thread end
+                _tcpListener?.Stop();
+                _receiveTask.Wait();
+                _receiveTask.Dispose();
+                _receiveTask = null;
+                _tcpListener = null;
+
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Closed));
             }
         }
 
         byte[] ReadData(NetworkStream stream)
         {
-            using (var reader = new BinaryReader(stream, Encoding, true))
-            {
-                // read data length
-                var length = reader.ReadInt32();
+            using var reader = new BinaryReader(stream, Encoding, true);
+            
+            // read data length
+            var length = reader.ReadInt32();
 
-                // read data
-                byte[] buffer = new byte[length];
-                int readPosition = 0;
-                do
-                {
-                    var readData = reader.ReadBytes(length);
-                    Array.Copy(readData, 0, buffer, readPosition, readData.Length);
-                    readPosition += readData.Length;
-                }
-                while (readPosition < length);
-                return buffer;
-                throw new Exception("Tcp format not defined.");
+            // read data
+            byte[] buffer = new byte[length];
+            int readPosition = 0;
+            do
+            {
+                var readData = reader.ReadBytes(length);
+                Array.Copy(readData, 0, buffer, readPosition, readData.Length);
+                readPosition += readData.Length;
             }
+            while (readPosition < length);
+            return buffer;
         }
 
         void WriteData(NetworkStream stream, byte[] data)
         {
-            using (var writer = new BinaryWriter(stream, Encoding, true))
-            {
-                // write data length
-                writer.Write((uint)data.Length);
-                // write data
-                writer.Write(data);
-            }
+            using var writer = new BinaryWriter(stream, Encoding, true);
+
+            // write data length
+            writer.Write((uint)data.Length);
+
+            // write data
+            writer.Write(data);
         }
 
-        async Task StreamingTask(TcpClient remoteClient, CancellationToken cancelToken)
+        void StreamingTask(TcpClient remoteClient, CancellationToken cancelToken)
         {
-            await Task.Run((Action)(() =>
+            // get stream to remote host
+            using var stream = remoteClient.GetStream();
+            stream.ReadTimeout = 1000;
+
+            byte[] buffer = new byte[remoteClient.ReceiveBufferSize];
+
+            while (cancelToken.IsCancellationRequested == false)
             {
-                // get stream to remote host
-                using (var stream = remoteClient.GetStream())
+                byte[] receivedData = null;
+
+                try
                 {
-                    byte[] buffer = new byte[remoteClient.ReceiveBufferSize];
+                    // read data
+                    receivedData = ReadData(stream);
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.DataReceived));
 
-                    while (cancelToken.IsCancellationRequested == false)
+                    // is canccelled?
+                    cancelToken.ThrowIfCancellationRequested();
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                catch (EndOfStreamException exp)
+                {
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.Disconnected(exp));
+                    break;
+                }
+                catch (SocketException exp)
+                {
+                    if (exp.ErrorCode == 10035)
+                        continue;
+                }
+                catch (Exception exp)
+                {
+                    if (cancelToken.IsCancellationRequested)
+                        break;
+
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(exp));
+                }
+
+
+                try
+                {
+                    // send response
+                    if (receivedData != null)
                     {
-                        byte[] receivedData = null;
-
-                        try
+                        var res = ReceiveFunction?.Invoke(receivedData);
+                        if (res != null)
                         {
-                            // read data
-                            receivedData = ReadData(stream);
-                            NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.DataReceived));
-
-                            // is canccelled?
-                            cancelToken.ThrowIfCancellationRequested();
-                        }
-                        catch (TaskCanceledException)
-                        {
-                            break;
-                        }
-                        catch (Exception exp)
-                        {
-                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(exp));
-                            break;
-                        }
-
-
-                        try
-                        {
-                            // send response
-                            var res = receiveFunction?.Invoke(receivedData);
-                            if (res != null)
-                            {
-                                WriteData(stream, res);
-                                stream.Flush();
-                                NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ResponseSended));
-                            }
-                        }
-                        catch (Exception exp)
-                        {
-                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveHandleError(exp));
+                            WriteData(stream, res);
+                            stream.Flush();
+                            NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ResponseSended));
                         }
                     }
                 }
-            }));
+                catch (Exception exp)
+                {
+                    if (cancelToken.IsCancellationRequested)
+                        break;
+
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveHandleError(exp));
+                }
+            }
         }
 
 
-        void ReceiveTask(int listenPort, CancellationToken cancelToken)
+        void ReceiveTask(CancellationToken cancelToken)
         {
             NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ReceiveThreadStarted));
 
-            try
+            while (cancelToken.IsCancellationRequested == false)
             {
-                NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Opening));
-                var endPoint = new IPEndPoint(IPAddress.Any, listenPort);
-                tcpListener = new TcpListener(endPoint);
-                tcpListener.Start();
-                NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Opened));
-
-                while (cancelToken.IsCancellationRequested == false)
+                try
                 {
-                    try
-                    {
-                        // waiting for client...
-                        NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.WaitingForConnection));
-                        var remoteClient = tcpListener.AcceptTcpClient();
+                    // waiting for client...
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.WaitingForConnection));
+                    var remoteClient = _tcpListener.AcceptTcpClient();
 
-                        // connected to client
-                        NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Connected));
+                    // canceled?
+                    cancelToken.ThrowIfCancellationRequested();
 
-                        // start new streaming task
-                        _ = StreamingTask(remoteClient, cancelToken);
-                    }
-                    catch (SocketException exp)
+                    // connected to client
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Connected));
+
+                    // start new streaming task
+                    var streamingTask = Task.Run(() => StreamingTask(remoteClient, cancelToken), cancelToken);
+                    _streamingTasks.Add(streamingTask);
+                }
+                catch (SocketException exp)
+                {
+                    if (cancelToken.IsCancellationRequested)
+                        break;
+
+                    switch (exp.ErrorCode)
                     {
-                        switch (exp.ErrorCode)
-                        {
-                            case WSAEINTR:
-                                /*this exception ignored because stop listener. */
-                                break;
-                            default:
-                                var e = new Exception($"Socket Exception: code={exp.ErrorCode}, message={exp.Message}", exp);
-                                NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(e));
-                                break;
-                        }
-                    }
-                    catch (Exception exp)
-                    {
-                        NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(exp));
+                        case WSAEINTR:
+                            /*this exception ignored because stop listener. */
+                            break;
+                        default:
+                            var e = new Exception($"Socket Exception: code={exp.ErrorCode}, message={exp.Message}", exp);
+                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(e));
+                            break;
                     }
                 }
-            }
-            catch (Exception exp)
-            {
-                NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(exp));
-            }
-            finally
-            {
-                tcpListener.Stop();
-                tcpListener = null;
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                catch (Exception exp)
+                {
+                    if (cancelToken.IsCancellationRequested)
+                        break;
 
-                cancelTokenSource.Dispose();
-                cancelTokenSource = null;
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(exp));
+                }
             }
 
             NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ReceiveThreadStopped));

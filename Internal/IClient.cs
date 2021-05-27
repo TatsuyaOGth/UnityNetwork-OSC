@@ -4,12 +4,12 @@ using System.Text;
 
 namespace Ogsn.Network.Internal
 {
-    interface IClient : IDisposable
+    public interface IClient : IDisposable
     {
         void Connect(string host, int port);
         void Disconnect();
 
-        void Send(byte[] data, Action<byte[]> getAction);
+        bool Send(byte[] data, Action<byte[]> getAction);
 
         bool IsConnected { get; }
         Protocol Protocol { get; }

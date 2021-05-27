@@ -12,16 +12,18 @@ namespace Ogsn.Network
         // Presets on Inspector
         public int ListenPort = 50000;
         public Protocol Protocol = Protocol.UDP;
-        public AutoRunType AutoRunType = AutoRunType.OnEnable;
-        public bool PrintToConsole = false;
+        public AutoRunType AutoRun = AutoRunType.OnEnable;
         public UpdateType UpdateType = UpdateType.Update;
+        public bool ReceiveLog = false;
+        public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
+
+        // Unity Event
+        public OscMessageReceivedArgs OscMessageReceived;
 
         // Properties
-        public bool IsOpened => _server?.isOpened ?? false;
-
-        // Event
-        public OscMessageReceivedArgs OscReceivedMessageEvent;
-        public OscReceiverEventArgs OscReceiverEvent;
+        public IServer Server => _server;
+        public bool IsOpened => _server?.IsOpened ?? false;
+        
 
         // Internal data
         IServer _server;
@@ -43,7 +45,7 @@ namespace Ogsn.Network
                     break;
             }
 
-            _server.receiveFunction = OnDataReceived;
+            _server.ReceiveFunction = OnDataReceived;
             _server.NotifyServerEvent += OnServerEventReceived;
             _server.Open(ListenPort);
         }
@@ -79,7 +81,7 @@ namespace Ogsn.Network
 
         private void Awake()
         {
-            if (AutoRunType == AutoRunType.Awake)
+            if (AutoRun == AutoRunType.Awake)
             {
                 Open();
             }
@@ -87,7 +89,7 @@ namespace Ogsn.Network
 
         private void Start()
         {
-            if (AutoRunType == AutoRunType.Start)
+            if (AutoRun == AutoRunType.Start)
             {
                 Open();
             }
@@ -95,7 +97,7 @@ namespace Ogsn.Network
 
         private void OnEnable()
         {
-            if (AutoRunType == AutoRunType.OnEnable)
+            if (AutoRun == AutoRunType.OnEnable)
             {
                 Open();
             }
@@ -115,7 +117,7 @@ namespace Ogsn.Network
         {
             if (UpdateType == UpdateType.Update && _queue.Count > 0)
             {
-                OscReceivedMessageEvent.Invoke(this, _queue.Dequeue());
+                OscMessageReceived.Invoke(this, _queue.Dequeue());
             }
         }
 
@@ -123,7 +125,7 @@ namespace Ogsn.Network
         {
             if (UpdateType == UpdateType.FixedUpdate && _queue.Count > 0)
             {
-                OscReceivedMessageEvent.Invoke(this, _queue.Dequeue());
+                OscMessageReceived.Invoke(this, _queue.Dequeue());
             }
         }
 
@@ -134,14 +136,14 @@ namespace Ogsn.Network
                 var msgs = _decoder.Decode(data);
                 foreach (var m in msgs)
                 {
-                    if (PrintToConsole)
+                    if (ReceiveLog)
                     {
                         Debug.Log($"[{nameof(OscReceiver)}] Received: {m}");
                     }
 
                     if (UpdateType == UpdateType.Async)
                     {
-                        OscReceivedMessageEvent.Invoke(this, m);
+                        OscMessageReceived.Invoke(this, m);
                     }
                     else
                     {
@@ -160,28 +162,39 @@ namespace Ogsn.Network
             {
                 switch (e.EventType)
                 {
-                    case ServerEventType.Opened:
-                        Debug.Log($"[{nameof(OscReceiver)}] Opened: {ListenPort}");
+                    case ServerEventType.Opening:
+                    case ServerEventType.Closing:
+                    case ServerEventType.ReceiveThreadStarted:
+                    case ServerEventType.ReceiveThreadStopped:
+                    case ServerEventType.WaitingForConnection:
+                    case ServerEventType.Connected:
+                    case ServerEventType.DataReceived:
+                    case ServerEventType.ResponseSended:
+                        if ((LogLevels & LogLevels.Verbose) > 0)
+                            Debug.Log($"[{nameof(OscReceiver)}] {e.EventType}: Listen port={ListenPort}({Protocol})");
                         break;
 
+                    case ServerEventType.Opened:
                     case ServerEventType.Closed:
-                        Debug.Log($"[{nameof(OscReceiver)}] Closed: {ListenPort}");
+                        if((LogLevels & LogLevels.Notice) > 0)
+                            Debug.Log($"[{nameof(OscReceiver)}] {e.EventType}: Listen port={ListenPort}({Protocol})");
+                        break;
+
+                    case ServerEventType.Disconnected:
+                        if ((LogLevels & LogLevels.Worning) > 0)
+                            Debug.LogWarning($"[{nameof(OscReceiver)}] {e.EventType}, {e?.Exception?.Message}: Listen port={ListenPort}({Protocol})");
                         break;
 
                     case ServerEventType.ReceiveError:
                     case ServerEventType.ReceiveHandleError:
-                        Debug.LogException(e.Exception);
+                        if ((LogLevels & LogLevels.Error) > 0)
+                            Debug.LogException(e.Exception);
                         break;
                 }
-
-                OscReceiverEvent?.Invoke(this, e);
             }
         }
     }
 
     [System.Serializable]
     public class OscMessageReceivedArgs : UnityEvent<OscReceiver, OscMessage> { }
-
-    [System.Serializable]
-    public class OscReceiverEventArgs : UnityEvent<OscReceiver, ServerEventArgs> { }
 }

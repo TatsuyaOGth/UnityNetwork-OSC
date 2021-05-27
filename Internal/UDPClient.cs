@@ -76,47 +76,48 @@ namespace Ogsn.Network.Internal
             NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Disconnected));
         }
 
-        public void Send(byte[] data, Action<byte[]> getAction)
+        public bool Send(byte[] data, Action<byte[]> getAction)
         {
-            if (IsConnected)
+            if (!IsConnected)
+                return false;
+
+            // Send async
+            try
             {
+                _udpClient.Send(data, data.Length);
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Sended));
+            }
+            catch (Exception exp)
+            {
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(exp));
+                return false;
+            }
 
-                // Send async
-                try
+            // Wait for response async
+            if (getAction != null)
+            {
+                var token = _cancellationTokenSource.Token;
+                _ = Task.Run(() =>
                 {
-                    _udpClient.Send(data, data.Length);
-                    NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Sended));
-                }
-                catch (Exception exp)
-                {
-                    NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(exp));
-                }
-
-                // Get response
-                if (getAction != null)
-                {
-                    var token = _cancellationTokenSource.Token;
-                    _ = Task.Run(() =>
+                    try
                     {
-                        try
-                        {
-                            IPEndPoint remoteEP = null;
-                            var res = _udpClient.Receive(ref remoteEP);
-                            token.ThrowIfCancellationRequested();
-                            NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
-                            getAction(res);
-                        }
-                        catch (TaskCanceledException)
-                        {
+                        IPEndPoint remoteEP = null;
+                        var res = _udpClient.Receive(ref remoteEP);
+                        token.ThrowIfCancellationRequested();
+                        NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
+                        getAction(res);
+                    }
+                    catch (TaskCanceledException)
+                    {
                             // Task was canceled.
                         }
-                        catch (Exception exp)
-                        {
-                            NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseError(exp));
-                        }
-                    }, token);
-                }
+                    catch (Exception exp)
+                    {
+                        NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseError(exp));
+                    }
+                }, token);
             }
+            return true;
         }
 
         #region IDisposable Support

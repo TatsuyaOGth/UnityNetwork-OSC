@@ -11,14 +11,14 @@ namespace Ogsn.Network.Internal
 {
     public class UDPServer : IServer
     {
-        public Func<byte[], byte[]> receiveFunction { get; set; }
+        public Func<byte[], byte[]> ReceiveFunction { get; set; }
 
-        public Protocol protocol
+        public Protocol Protocol
         {
             get { return Protocol.UDP; }
         }
 
-        public bool isOpened
+        public bool IsOpened
         {
             get { return _udpClient != null; }
         }
@@ -74,11 +74,11 @@ namespace Ogsn.Network.Internal
                         NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.WaitingForConnection));
                         data  = _udpClient.Receive(ref endPoint);
 
-                        // notify connected to client
-                        NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.DataReceived));
-
                         // is canccelled?
                         cancelToken.ThrowIfCancellationRequested();
+
+                        // notify connected to client
+                        NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.DataReceived));
                     }
                     catch (TaskCanceledException)
                     {
@@ -118,7 +118,7 @@ namespace Ogsn.Network.Internal
                         try
                         {
                             // run response task
-                            var res = receiveFunction?.Invoke(data);
+                            var res = ReceiveFunction?.Invoke(data);
                             if (res != null)
                             {
                                 _udpClient.Send(res, res.Length, endPoint);

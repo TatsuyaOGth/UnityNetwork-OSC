@@ -18,6 +18,11 @@ namespace Ogsn.Network.Internal
             return new ServerEventArgs(type, null);
         }
 
+        public static ServerEventArgs Disconnected(Exception exception)
+        {
+            return new ServerEventArgs(ServerEventType.Disconnected, exception);
+        }
+
         public static ServerEventArgs ReceiveError(Exception exception)
         {
             return new ServerEventArgs(ServerEventType.ReceiveError, exception);

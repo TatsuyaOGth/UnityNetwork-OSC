@@ -1,4 +1,5 @@
-﻿
+﻿using System;
+
 namespace Ogsn.Network
 {
     public enum Protocol
@@ -18,10 +19,9 @@ namespace Ogsn.Network
         Disconnected,
         Sended,
         ResponseReceived,
+        ConnectionError,
         SendError,
         ResponseError,
-        PingSuccessed,
-        PingFailed,
     }
 
     public enum ServerEventType
@@ -35,12 +35,12 @@ namespace Ogsn.Network
         ReceiveThreadStopped,
         WaitingForConnection,
         Connected,
+        Disconnected,
         DataReceived,
         ResponseSended,
         ReceiveError,
         ReceiveHandleError,
     }
-
 
     public enum AutoRunType
     {
@@ -56,5 +56,15 @@ namespace Ogsn.Network
         Update,
         FixedUpdate,
         Async,
+    }
+
+    [Flags]
+    public enum LogLevels
+    {
+        None = 0,
+        Verbose = 1,
+        Notice = 2,
+        Worning = 4,
+        Error = 8,
     }
 }
