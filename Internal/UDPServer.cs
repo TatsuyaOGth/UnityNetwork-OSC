@@ -84,6 +84,10 @@ namespace Ogsn.Network.Internal
                     {
                         break;
                     }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
                     catch (SocketException exp)
                     {
                         if (exp.ErrorCode == WSAEINTR)

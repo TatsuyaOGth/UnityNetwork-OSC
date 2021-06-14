@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -14,6 +15,7 @@ namespace Ogsn.Network
         public Protocol Protocol = Protocol.UDP;
         public AutoRunType AutoRun = AutoRunType.OnEnable;
         public UpdateType UpdateType = UpdateType.Update;
+        public bool IsOverwriteSameAddressOnFrame = true;
         public bool ReceiveLog = false;
         public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
 
@@ -27,8 +29,9 @@ namespace Ogsn.Network
 
         // Internal data
         IServer _server;
-        OscDecoder _decoder = new OscDecoder();
-        Queue<OscMessage> _queue = new Queue<OscMessage>();
+        readonly OscDecoder _decoder = new OscDecoder();
+        readonly Queue<OscMessage> _queue = new Queue<OscMessage>();
+        readonly object _lockObj = new object();
 
         public void Open()
         {
@@ -75,7 +78,10 @@ namespace Ogsn.Network
                 Debug.LogWarning($"[{nameof(OscReceiver)}] The other messages may have been invoked on \"OscReceivedMessageEvent\". Set \"UpdateType = None\" to stop this.");
             }
 
-            return _queue.Dequeue();
+            lock (_lockObj)
+            {
+                return _queue.Dequeue();
+            }
         }
 
 
@@ -117,7 +123,10 @@ namespace Ogsn.Network
         {
             if (UpdateType == UpdateType.Update && _queue.Count > 0)
             {
-                OscMessageReceived.Invoke(this, _queue.Dequeue());
+                lock (_lockObj)
+                {
+                    OscMessageReceived.Invoke(this, _queue.Dequeue());
+                }
             }
         }
 
@@ -125,7 +134,21 @@ namespace Ogsn.Network
         {
             if (UpdateType == UpdateType.FixedUpdate && _queue.Count > 0)
             {
-                OscMessageReceived.Invoke(this, _queue.Dequeue());
+                lock (_lockObj)
+                {
+                    OscMessageReceived.Invoke(this, _queue.Dequeue());
+                }
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (UpdateType == UpdateType.LateUpdate && _queue.Count > 0)
+            {
+                lock (_lockObj)
+                {
+                    OscMessageReceived.Invoke(this, _queue.Dequeue());
+                }
             }
         }
 
@@ -147,7 +170,21 @@ namespace Ogsn.Network
                     }
                     else
                     {
-                        _queue.Enqueue(m);
+                        lock (_lockObj)
+                        {
+                            if (IsOverwriteSameAddressOnFrame)
+                            {
+                                var elm = _queue.FirstOrDefault(e => e.Address == m.Address);
+                                if (elm == null)
+                                    _queue.Enqueue(m);
+                                else
+                                    elm = m;
+                            }
+                            else
+                            {
+                                _queue.Enqueue(m);
+                            }
+                        }
                     }
                 }
             }
