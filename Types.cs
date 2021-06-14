@@ -55,6 +55,7 @@ namespace Ogsn.Network
         None,
         Update,
         FixedUpdate,
+        LateUpdate,
         Async,
     }
 
