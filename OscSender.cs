@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace Ogsn.Network
 {
@@ -15,6 +15,8 @@ namespace Ogsn.Network
         public int SendPort = 50001;
         public Protocol Protocol = Protocol.UDP;
         public AutoRunType AutoRun = AutoRunType.OnEnable;
+        public UpdateType SendOn = UpdateType.Async;
+        public bool IsOverwriteSameAddressOnFrame = false;
         public bool SendLog = false;
         public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
 
@@ -27,8 +29,7 @@ namespace Ogsn.Network
         IClient _client;
         OscEncoder _encoder = new OscEncoder();
         bool _isConnectionRequested;
-
-
+        Queue<OscMessage> _sendQueues = new Queue<OscMessage>();
 
         public void Connect()
         {
@@ -151,6 +152,36 @@ namespace Ogsn.Network
         }
 
 
+        public void SendOnScheduler(string address, params object[] args)
+        {
+            SendOnScheduler(new OscMessage(address, args));
+        }
+
+
+        public void SendOnScheduler(OscMessage message)
+        {
+            if (SendOn == UpdateType.Async)
+            {
+                Send(message);
+            }
+            else
+            {
+                if (IsOverwriteSameAddressOnFrame)
+                {
+                    var elm = _sendQueues.FirstOrDefault(e => e.Address == message.Address);
+                    if (elm == null)
+                        _sendQueues.Enqueue(message);
+                    else
+                        elm = message;
+                }
+                else
+                {
+                    _sendQueues.Enqueue(message);
+                }
+            }
+        }
+
+
 
         private void Awake()
         {
@@ -185,6 +216,42 @@ namespace Ogsn.Network
         {
             Disconnect();
         }
+
+
+        private void Update()
+        {
+            if (SendOn == UpdateType.Update && _sendQueues.Count > 0)
+            {
+                Flush();
+            }
+        }
+
+        private void FixedUpdate()
+        {
+            if (SendOn == UpdateType.FixedUpdate && _sendQueues.Count > 0)
+            {
+                Flush();
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (SendOn == UpdateType.LateUpdate && _sendQueues.Count > 0)
+            {
+                Flush();   
+            }
+        }
+
+
+        void Flush()
+        {
+            int size = _sendQueues.Count;
+            for (int i = 0; i < size; ++i)
+            {
+                Send(_sendQueues.Dequeue());
+            }
+        }
+
 
         void PrintMessage(string address, params object[] args)
         {
