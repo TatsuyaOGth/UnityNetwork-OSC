@@ -38,7 +38,6 @@ namespace Ogsn.Network.Internal
         void ReadMessage()
         {
             var path = ReadString();
-            Console.WriteLine($"Read as OSC header: {path}");
             if (path == "#bundle")
             {
                 // TODO: Read timestamp
