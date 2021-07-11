@@ -14,7 +14,7 @@ namespace Ogsn.Network
         public string SendHost = "127.0.0.1";
         public int SendPort = 50001;
         public Protocol Protocol = Protocol.UDP;
-        public AutoRunType AutoRun = AutoRunType.OnEnable;
+        public AutoRunType AutoRun = AutoRunType.Start;
         public UpdateType SendOn = UpdateType.Async;
         public bool IsOverwriteSameAddressOnFrame = false;
         public bool SendLog = false;
