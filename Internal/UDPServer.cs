@@ -33,12 +33,15 @@ namespace Ogsn.Network.Internal
         UdpClient _udpClient;
         Task _receiveTask;
         CancellationTokenSource _cancelTokenSource;
-
+        int _lastListenPort;
+        bool _willReopen = false;
 
         // Socket error code
         // https://docs.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2
         const int WSAEINTR = 10004;
         const int WSAETIMEDOUT = 10060;
+        const int WSAENOTSOCK = 10038;
+        const int WSAENOTCONN = 10057;
 
 
         public void Open(int listenPort)
@@ -48,6 +51,8 @@ namespace Ogsn.Network.Internal
             {
                 Close();
             }
+
+            _lastListenPort = listenPort;
 
             // initialize receiver
             NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Opening));
@@ -59,6 +64,7 @@ namespace Ogsn.Network.Internal
             // start receive thread
             _cancelTokenSource = new CancellationTokenSource();
             var cancelToken = _cancelTokenSource.Token;
+
             _receiveTask = Task.Run(() =>
             {
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ReceiveThreadStarted));
@@ -100,6 +106,12 @@ namespace Ogsn.Network.Internal
                             /* throgh this exception because this mean receiver timeouted. */
                             continue;
                         }
+                        else if (exp.ErrorCode == WSAENOTSOCK || exp.ErrorCode == WSAENOTCONN)
+                        {
+                            // I was found this error on iOS device did sleep and wakeup.
+                            _willReopen = true;
+                            break;
+                        }
                         else
                         {
                             var e = new Exception($"Socket Exception: code={exp.ErrorCode} {exp.Message}", exp);
@@ -137,6 +149,13 @@ namespace Ogsn.Network.Internal
                 }
 
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ReceiveThreadStopped));
+
+                if (_willReopen)
+                {
+                    _willReopen = false;
+                    Close();
+                    Open(_lastListenPort);
+                }
             }, cancelToken);
         }
 
@@ -148,10 +167,9 @@ namespace Ogsn.Network.Internal
 
                 // stop receive thread
                 _cancelTokenSource.Cancel();
-                _receiveTask.Wait();
+                //_receiveTask.Wait();
                 _udpClient.Close();
                 _udpClient.Dispose();
-                _receiveTask = null;
                 _udpClient = null;
 
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Closed));
