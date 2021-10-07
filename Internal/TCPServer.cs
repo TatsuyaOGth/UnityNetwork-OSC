@@ -39,7 +39,7 @@ namespace Ogsn.Network.Internal
         // Socket error code
         // https://docs.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2
         const int WSAEINTR = 10004;
-
+        const int WSAEWOULDBLOCK = 10035;
 
 
         public void Open(int listenPort)
@@ -99,10 +99,10 @@ namespace Ogsn.Network.Internal
         byte[] ReadData(NetworkStream stream)
         {
             using var reader = new BinaryReader(stream, Encoding, true);
-            
-            // read data length
-            var length = reader.ReadInt32();
 
+            // read data length
+            int length = reader.ReadInt32();
+            
             // read data
             byte[] buffer = new byte[length];
             int readPosition = 0;
@@ -131,7 +131,7 @@ namespace Ogsn.Network.Internal
         {
             // get stream to remote host
             using var stream = remoteClient.GetStream();
-            stream.ReadTimeout = 1000;
+            //stream.ReadTimeout = 1000;
 
             byte[] buffer = new byte[remoteClient.ReceiveBufferSize];
 
@@ -159,7 +159,7 @@ namespace Ogsn.Network.Internal
                 }
                 catch (SocketException exp)
                 {
-                    if (exp.ErrorCode == 10035)
+                    if (exp.ErrorCode == WSAEWOULDBLOCK)
                         continue;
                 }
                 catch (Exception exp)

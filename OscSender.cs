@@ -20,6 +20,9 @@ namespace Ogsn.Network
         public bool SendLog = false;
         public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
 
+        // Events
+        public ClientEventHandler ClientEvent = new ClientEventHandler();
+
         // Properties
         public IClient Client => _client;
         public bool IsConnected => _client?.IsConnected ?? false;
@@ -316,6 +319,8 @@ namespace Ogsn.Network
                             Debug.LogException(e.Exception);
                         break;
                 }
+
+                ClientEvent?.Invoke(e.EventType);
             }
         }
     }

@@ -13,14 +13,15 @@ namespace Ogsn.Network
         // Presets on Inspector
         public int ListenPort = 50000;
         public Protocol Protocol = Protocol.UDP;
-        public AutoRunType AutoRun = AutoRunType.OnEnable;
+        public AutoRunType AutoRun = AutoRunType.Start;
         public UpdateType UpdateType = UpdateType.Update;
         public bool IsOverwriteSameAddressOnFrame = true;
         public bool ReceiveLog = false;
         public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
 
         // Unity Event
-        public OscMessageReceivedArgs OscMessageReceived;
+        public OscMessageReceivedArgs OscMessageReceived = new OscMessageReceivedArgs();
+        public ServerEventHandler ServerEvent = new ServerEventHandler();
 
         // Properties
         public IServer Server => _server;
@@ -228,10 +229,9 @@ namespace Ogsn.Network
                             Debug.LogException(e.Exception);
                         break;
                 }
+
+                ServerEvent?.Invoke(e.EventType);
             }
         }
     }
-
-    [System.Serializable]
-    public class OscMessageReceivedArgs : UnityEvent<OscReceiver, OscMessage> { }
 }
