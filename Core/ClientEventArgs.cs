@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public class ClientEventArgs
     {

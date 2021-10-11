@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Text;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public interface IServer : IDisposable
     {

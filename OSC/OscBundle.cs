@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text;
 
-namespace Ogsn.Network
+namespace Ogsn.Network.OSC
 {
     /// <summary>
     /// OSC Bundle Class

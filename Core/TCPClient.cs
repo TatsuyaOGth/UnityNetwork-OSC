@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public class TCPClient : IClient
     {

@@ -3,7 +3,7 @@ using System.Text;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.OSC
 {
     #region OSC Parser class
     /// <summary>

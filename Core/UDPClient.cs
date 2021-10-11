@@ -9,7 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public class UDPClient : IClient
     {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public interface IClient : IDisposable
     {

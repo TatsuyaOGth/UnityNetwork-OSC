@@ -7,7 +7,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public class UDPServer : IServer
     {

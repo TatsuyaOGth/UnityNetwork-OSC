@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
-namespace Ogsn.Network
+namespace Ogsn.Network.OSC
 {
-    using Internal;
+    using Core;
 
     public class OscSender : MonoBehaviour
     {

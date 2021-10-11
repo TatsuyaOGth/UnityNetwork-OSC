@@ -2,11 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.Events;
 
-namespace Ogsn.Network
+namespace Ogsn.Network.OSC
 {
-    using Internal;
+    using Core;
 
     public class OscReceiver : MonoBehaviour
     {

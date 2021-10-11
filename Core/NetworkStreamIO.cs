@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Text;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public static class NetworkStreamIO
     {

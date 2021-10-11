@@ -6,7 +6,7 @@ using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Ogsn.Network.Internal
+namespace Ogsn.Network.Core
 {
     public class PingClient : IDisposable
     {
