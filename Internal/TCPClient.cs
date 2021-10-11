@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.IO;
 using System.Linq;
@@ -8,8 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
-
 
 namespace Ogsn.Network.Internal
 {
@@ -23,16 +22,11 @@ namespace Ogsn.Network.Internal
         {
             get
             {
-                if (_tcpClient != null && _stream != null)
+                if (_tcpClient == null && _stream == null)
                 {
-                    //try
-                    //{
-                    //    WriteData(_stream, new byte[] { 0x04 });
-                    //}
-                    //catch { return false; }
-                    return _tcpClient.Connected;
+                    return false;
                 }
-                return false;
+                return _isConnected;
             }
         }
 
@@ -45,6 +39,7 @@ namespace Ogsn.Network.Internal
 
         public Encoding Encoding { get; set; } = Encoding.ASCII;
 
+        public int ReconnectionTime { get; set; } = 1000;
 
         // Internal data
         TcpClient _tcpClient;
@@ -54,8 +49,7 @@ namespace Ogsn.Network.Internal
         CancellationTokenSource _cancellationTokenSource;
 
         bool _isConnectionIntermittently;
-        int _retryConnectionInterval = 1000;
-
+        bool _isConnected;
 
         public void Connect(string host, int port)
         {
@@ -108,7 +102,7 @@ namespace Ogsn.Network.Internal
 
             try
             {
-                WriteData(_stream, data);
+                NetworkStreamIO.WriteData(_stream, data, Encoding);
                 NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Sended));
             }
             catch (Exception exp)
@@ -120,52 +114,18 @@ namespace Ogsn.Network.Internal
             // Wait for response async
             if (getAction != null)
             {
-                _ = Task.Run(() =>
+                try
                 {
-                    try
-                    {
-                        var res = ReadData(_stream);
-                        NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
-                        getAction(res);
-                    }
-                    catch (Exception exp)
-                    {
-                        NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseError(exp));
-                    }
-                });
+                    var res = NetworkStreamIO.ReadData(_stream, Encoding);
+                    NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
+                    getAction(res);
+                }
+                catch (Exception exp)
+                {
+                    NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseError(exp));
+                }
             }
             return true;
-        }
-
-        byte[] ReadData(Stream stream)
-        {
-            using var reader = new BinaryReader(stream, Encoding, true);
-
-            // read data length
-            var length = reader.ReadInt32();
-
-            // read data
-            byte[] buffer = new byte[length];
-            int readPosition = 0;
-            do
-            {
-                var readData = reader.ReadBytes(length);
-                Array.Copy(readData, 0, buffer, readPosition, readData.Length);
-                readPosition += readData.Length;
-            }
-            while (readPosition < length);
-            return buffer;
-        }
-
-        void WriteData(Stream stream, byte[] data)
-        {
-            using var writer = new BinaryWriter(stream, Encoding, true);
-
-            // write data length
-            writer.Write((uint)data.Length);
-
-            // write data
-            writer.Write(data);
         }
 
         async Task ConnectionLoop(CancellationToken cancellationToken)
@@ -181,6 +141,8 @@ namespace Ogsn.Network.Internal
                             // Cleate new TCP client instance
                             _tcpClient = new TcpClient();
                             await _tcpClient.ConnectAsync(_targetEndPoint.Address, _targetEndPoint.Port);
+
+                            _isConnected = true;
                             NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Connected));
 
                             // Get stream
@@ -193,13 +155,19 @@ namespace Ogsn.Network.Internal
                             _stream = _tcpClient.GetStream();
                             _stream.ReadTimeout = ResponseTimeout;
                         }
+                        catch (ObjectDisposedException)
+                        {
+                            // may have disconnected
+                            _isConnected = false;
+                            break;
+                        }
                         catch (Exception exp)
                         {
                             NotifyClientEvent?.Invoke(this, ClientEventArgs.ConnectionError(exp));
                         }
                     }
 
-                    await Task.Delay(_retryConnectionInterval, cancellationToken);
+                    await Task.Delay(ReconnectionTime, cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -207,6 +175,7 @@ namespace Ogsn.Network.Internal
                 }
             }
             while (cancellationToken.IsCancellationRequested == false && _isConnectionIntermittently);
+            _isConnected = false;
         }
 
         #region IDisposable Support

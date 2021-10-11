@@ -7,7 +7,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Ogsn.Network.Internal
 {
@@ -96,37 +95,6 @@ namespace Ogsn.Network.Internal
             }
         }
 
-        byte[] ReadData(NetworkStream stream)
-        {
-            using var reader = new BinaryReader(stream, Encoding, true);
-
-            // read data length
-            int length = reader.ReadInt32();
-            
-            // read data
-            byte[] buffer = new byte[length];
-            int readPosition = 0;
-            do
-            {
-                var readData = reader.ReadBytes(length);
-                Array.Copy(readData, 0, buffer, readPosition, readData.Length);
-                readPosition += readData.Length;
-            }
-            while (readPosition < length);
-            return buffer;
-        }
-
-        void WriteData(NetworkStream stream, byte[] data)
-        {
-            using var writer = new BinaryWriter(stream, Encoding, true);
-
-            // write data length
-            writer.Write((uint)data.Length);
-
-            // write data
-            writer.Write(data);
-        }
-
         void StreamingTask(TcpClient remoteClient, CancellationToken cancelToken)
         {
             // get stream to remote host
@@ -142,7 +110,7 @@ namespace Ogsn.Network.Internal
                 try
                 {
                     // read data
-                    receivedData = ReadData(stream);
+                    receivedData = NetworkStreamIO.ReadData(stream, Encoding);
                     NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.DataReceived));
 
                     // is canccelled?
@@ -179,7 +147,7 @@ namespace Ogsn.Network.Internal
                         var res = ReceiveFunction?.Invoke(receivedData);
                         if (res != null)
                         {
-                            WriteData(stream, res);
+                            NetworkStreamIO.WriteData(stream, res, Encoding);
                             stream.Flush();
                             NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ResponseSended));
                         }
