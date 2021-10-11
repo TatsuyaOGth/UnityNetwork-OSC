@@ -10,22 +10,36 @@ namespace Ogsn.Network.OSC
     public class OscReceiver : MonoBehaviour
     {
         // Presets on Inspector
+        [Header("Listen port")]
         public int ListenPort = 50000;
+
+        [Header("Advanced")]
         public Protocol Protocol = Protocol.UDP;
-        public AutoRunType AutoRun = AutoRunType.Start;
-        public UpdateType UpdateType = UpdateType.Update;
-        public bool IsOverwriteSameAddressOnFrame = true;
+        public InitCallbackType AutoOpen = InitCallbackType.Start;
+
+        [Tooltip("Timing to invoke the event handler after receiving the message.")]
+        public UpdateCallbackType UpdateType = UpdateCallbackType.Update;
+
+        public bool CloseOnDisable = true;
+
+        [Tooltip("Overwrites the data after receiving the message if the same address already exists in the queue.")]
+        public bool Organize = false;
+
+        [Tooltip("Output to console when a message received")]
         public bool ReceiveLog = false;
+
         public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
 
         // Unity Event
+        [Header("Event Handler")]
         public OscMessageReceivedArgs OscMessageReceived = new OscMessageReceivedArgs();
         public ServerEventHandler ServerEvent = new ServerEventHandler();
 
         // Properties
         public IServer Server => _server;
         public bool IsOpened => _server?.IsOpened ?? false;
-        
+        public int NumberOfQueue => _queue.Count;
+
 
         // Internal data
         IServer _server;
@@ -73,7 +87,7 @@ namespace Ogsn.Network.OSC
             if (!HasReceivedMessages)
                 return null;
 
-            if (UpdateType != UpdateType.None)
+            if (UpdateType != UpdateCallbackType.None)
             {
                 Debug.LogWarning($"[{nameof(OscReceiver)}] The other messages may have been invoked on \"OscReceivedMessageEvent\". Set \"UpdateType = None\" to stop this.");
             }
@@ -87,7 +101,7 @@ namespace Ogsn.Network.OSC
 
         private void Awake()
         {
-            if (AutoRun == AutoRunType.Awake)
+            if (AutoOpen == InitCallbackType.Awake)
             {
                 Open();
             }
@@ -95,7 +109,7 @@ namespace Ogsn.Network.OSC
 
         private void Start()
         {
-            if (AutoRun == AutoRunType.Start)
+            if (AutoOpen == InitCallbackType.Start)
             {
                 Open();
             }
@@ -103,7 +117,7 @@ namespace Ogsn.Network.OSC
 
         private void OnEnable()
         {
-            if (AutoRun == AutoRunType.OnEnable)
+            if (AutoOpen == InitCallbackType.OnEnable)
             {
                 Open();
             }
@@ -111,7 +125,10 @@ namespace Ogsn.Network.OSC
 
         private void OnDisable()
         {
-            Close();
+            if (CloseOnDisable)
+            {
+                Close();
+            }
         }
 
         private void OnDestroy()
@@ -121,7 +138,7 @@ namespace Ogsn.Network.OSC
 
         private void Update()
         {
-            if (UpdateType == UpdateType.Update && _queue.Count > 0)
+            if (UpdateType == UpdateCallbackType.Update && _queue.Count > 0)
             {
                 lock (_lockObj)
                 {
@@ -132,7 +149,7 @@ namespace Ogsn.Network.OSC
 
         private void FixedUpdate()
         {
-            if (UpdateType == UpdateType.FixedUpdate && _queue.Count > 0)
+            if (UpdateType == UpdateCallbackType.FixedUpdate && _queue.Count > 0)
             {
                 lock (_lockObj)
                 {
@@ -143,7 +160,7 @@ namespace Ogsn.Network.OSC
 
         private void LateUpdate()
         {
-            if (UpdateType == UpdateType.LateUpdate && _queue.Count > 0)
+            if (UpdateType == UpdateCallbackType.LateUpdate && _queue.Count > 0)
             {
                 lock (_lockObj)
                 {
@@ -164,7 +181,7 @@ namespace Ogsn.Network.OSC
                         Debug.Log($"[{nameof(OscReceiver)}] Received: {m}");
                     }
 
-                    if (UpdateType == UpdateType.Async)
+                    if (UpdateType == UpdateCallbackType.Async)
                     {
                         OscMessageReceived.Invoke(this, m);
                     }
@@ -172,7 +189,7 @@ namespace Ogsn.Network.OSC
                     {
                         lock (_lockObj)
                         {
-                            if (IsOverwriteSameAddressOnFrame)
+                            if (Organize)
                             {
                                 var elm = _queue.FirstOrDefault(e => e.Address == m.Address);
                                 if (elm == null)

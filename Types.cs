@@ -42,7 +42,7 @@ namespace Ogsn.Network
         ReceiveHandleError,
     }
 
-    public enum AutoRunType
+    public enum InitCallbackType
     {
         None,
         Awake,
@@ -50,7 +50,7 @@ namespace Ogsn.Network
         OnEnable,
     }
 
-    public enum UpdateType
+    public enum UpdateCallbackType
     {
         None,
         Update,

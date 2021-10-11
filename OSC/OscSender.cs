@@ -11,28 +11,43 @@ namespace Ogsn.Network.OSC
     public class OscSender : MonoBehaviour
     {
         // Presets on Inspector
+        [Header("Remote host")]
         public string SendHost = "127.0.0.1";
         public int SendPort = 50001;
+
+        [Header("Advanced")]
         public Protocol Protocol = Protocol.UDP;
-        public AutoRunType AutoRun = AutoRunType.Start;
-        public UpdateType SendOn = UpdateType.Async;
-        public bool IsOverwriteSameAddressOnFrame = false;
+        public InitCallbackType AutoConnection = InitCallbackType.Start;
+        public bool DisconnectOnDisable = true;
+
+        [Tooltip("Overwrites the data before sending the message if the same address already exists in the queue.")]
+        public bool Organize = false;
+
+        [Tooltip("Output to console when a message send")]
         public bool SendLog = false;
+
         public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
 
         // Events
+        [Header("Event Handler")]
         public ClientEventHandler ClientEvent = new ClientEventHandler();
 
         // Properties
         public IClient Client => _client;
         public bool IsConnected => _client?.IsConnected ?? false;
         public bool IsConnectionRequested => _isConnectionRequested;
+        public int NumberOfQueue =>
+            _sendOnUpdateQueues.Count +
+            _sendOnFixedUpdateQueues.Count +
+            _sendOnLateUpdateQueues.Count;
 
         // Internal data
         IClient _client;
         OscEncoder _encoder = new OscEncoder();
         bool _isConnectionRequested;
-        Queue<OscMessage> _sendQueues = new Queue<OscMessage>();
+        Queue<OscMessage> _sendOnUpdateQueues = new Queue<OscMessage>();
+        Queue<OscMessage> _sendOnLateUpdateQueues = new Queue<OscMessage>();
+        Queue<OscMessage> _sendOnFixedUpdateQueues = new Queue<OscMessage>();
 
         public void Connect()
         {
@@ -110,25 +125,7 @@ namespace Ogsn.Network.OSC
 
         public bool Send(OscMessage message)
         {
-            if (_client == null)
-                return false;
-
-            try
-            {
-                if (SendLog)
-                {
-                    PrintMessage(message);
-                }
-
-                var data = _encoder.Encode(message);
-                return _client.Send(data, null);
-                //TODO: response receive function.
-            }
-            catch (System.Exception exp)
-            {
-                Debug.LogException(exp);
-                return false;
-            }
+            return Send(message.Address, message.Data.ToArray());
         }
 
         public bool Send(OscBundle bundle)
@@ -155,32 +152,36 @@ namespace Ogsn.Network.OSC
         }
 
 
-        public void SendOnScheduler(string address, params object[] args)
+        public void SendOnScheduler(string address, UpdateCallbackType schedule, params object[] args)
         {
-            SendOnScheduler(new OscMessage(address, args));
+            SendOnScheduler(new OscMessage(address, args), schedule);
         }
 
 
-        public void SendOnScheduler(OscMessage message)
+        public void SendOnScheduler(OscMessage message, UpdateCallbackType schedule)
         {
-            if (SendOn == UpdateType.Async)
+            switch (schedule)
             {
-                Send(message);
-            }
-            else
-            {
-                if (IsOverwriteSameAddressOnFrame)
-                {
-                    var elm = _sendQueues.FirstOrDefault(e => e.Address == message.Address);
-                    if (elm == null)
-                        _sendQueues.Enqueue(message);
-                    else
-                        elm = message;
-                }
-                else
-                {
-                    _sendQueues.Enqueue(message);
-                }
+                case UpdateCallbackType.Async:
+                    // Send immediately
+                    Send(message);
+                    break;
+                case UpdateCallbackType.Update:
+                    AddQueue(_sendOnUpdateQueues, message);
+                    break;
+                case UpdateCallbackType.FixedUpdate:
+                    AddQueue(_sendOnFixedUpdateQueues, message);
+                    break;
+                case UpdateCallbackType.LateUpdate:
+                    AddQueue(_sendOnLateUpdateQueues, message);
+                    break;
+
+                default:
+                    if ((LogLevels & LogLevels.Worning) > 0)
+                    {
+                        Debug.LogWarning($"[{nameof(OscSender)}] Schedule type is '{schedule}', no sending");
+                    }
+                    break;
             }
         }
 
@@ -188,7 +189,7 @@ namespace Ogsn.Network.OSC
 
         private void Awake()
         {
-            if (AutoRun == AutoRunType.Awake)
+            if (AutoConnection == InitCallbackType.Awake)
             {
                 Connect();
             }
@@ -196,7 +197,7 @@ namespace Ogsn.Network.OSC
 
         private void Start()
         {
-            if (AutoRun == AutoRunType.Start)
+            if (AutoConnection == InitCallbackType.Start)
             {
                 Connect();
             }
@@ -204,7 +205,7 @@ namespace Ogsn.Network.OSC
 
         private void OnEnable()
         {
-            if (AutoRun == AutoRunType.OnEnable)
+            if (AutoConnection == InitCallbackType.OnEnable)
             {
                 Connect();
             }
@@ -212,7 +213,10 @@ namespace Ogsn.Network.OSC
 
         private void OnDisable()
         {
-            Disconnect();
+            if (DisconnectOnDisable)
+            {
+                Disconnect();
+            }
         }
 
         private void OnDestroy()
@@ -223,38 +227,43 @@ namespace Ogsn.Network.OSC
 
         private void Update()
         {
-            if (SendOn == UpdateType.Update && _sendQueues.Count > 0)
-            {
-                Flush();
-            }
+            Flush(_sendOnUpdateQueues);
         }
 
         private void FixedUpdate()
         {
-            if (SendOn == UpdateType.FixedUpdate && _sendQueues.Count > 0)
-            {
-                Flush();
-            }
+            Flush(_sendOnUpdateQueues);
         }
 
         private void LateUpdate()
         {
-            if (SendOn == UpdateType.LateUpdate && _sendQueues.Count > 0)
+            Flush(_sendOnLateUpdateQueues);
+        }
+
+        void AddQueue(Queue<OscMessage> queue, OscMessage message)
+        {
+            if (Organize)
             {
-                Flush();   
+                var elm = queue.FirstOrDefault(e => e.Address == message.Address);
+                if (elm == null)
+                    queue.Enqueue(message);
+                else
+                    elm = message;
+            }
+            else
+            {
+                queue.Enqueue(message);
             }
         }
 
-
-        void Flush()
+        void Flush(Queue<OscMessage> queue)
         {
-            int size = _sendQueues.Count;
+            int size = queue.Count;
             for (int i = 0; i < size; ++i)
             {
-                Send(_sendQueues.Dequeue());
+                Send(queue.Dequeue());
             }
         }
-
 
         void PrintMessage(string address, params object[] args)
         {
