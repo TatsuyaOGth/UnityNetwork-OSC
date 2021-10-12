@@ -3,15 +3,17 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using Ogsn.Network.OSC;
 
 namespace Ogsn.Network.Example
 {
-    public class NetworkExample : MonoBehaviour
+    public class OscExample : MonoBehaviour
     {
-        public NetworkSender Sender;
-        public NetworkReceiver Receiver;
+        public OscSender Sender;
+        public OscReceiver Receiver;
 
-        public InputField SendMessageInput;
+        public InputField AddressInput;
+        public InputField StringInput;
 
         public Text LogText;
 
@@ -27,7 +29,7 @@ namespace Ogsn.Network.Example
 
         public void Send()
         {
-            Sender.Send(SendMessageInput.text, System.Text.Encoding.ASCII);
+            Sender.Send(AddressInput.text, StringInput.text);
         }
 
 
@@ -41,6 +43,7 @@ namespace Ogsn.Network.Example
         {
             Receiver.Close();
         }
+
 
 
 

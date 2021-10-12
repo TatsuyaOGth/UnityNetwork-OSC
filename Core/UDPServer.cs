@@ -77,7 +77,7 @@ namespace Ogsn.Network.Core
                     try
                     {
                         // waiting for data
-                        NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.WaitingForConnection));
+                        //NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.WaitingForConnection));
                         data  = _udpClient.Receive(ref endPoint);
 
                         // is canccelled?

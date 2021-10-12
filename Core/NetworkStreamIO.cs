@@ -7,9 +7,6 @@ namespace Ogsn.Network.Core
 {
     public static class NetworkStreamIO
     {
-        const int HeaderLength = sizeof(int);
-        static readonly byte[] _lengthReadBuffer = new byte[HeaderLength];
-
         public static byte[] ReadData(NetworkStream stream, Encoding encoding)
         {
             using var reader = new BinaryReader(stream, encoding, true);

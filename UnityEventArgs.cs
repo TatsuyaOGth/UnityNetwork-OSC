@@ -11,8 +11,8 @@ namespace Ogsn.Network
 
 
     [Serializable]
-    public class NetworkMessageReceivedArgs : UnityEvent<NetworkReceiver, byte[]> { }
+    public class DataReceivedEventHandler : UnityEvent<byte[]> { }
 
     [Serializable]
-    public class OscMessageReceivedArgs : UnityEvent<OSC.OscReceiver, OSC.OscMessage> { }
+    public class OscMessageReceivedEventHandler : UnityEvent<OSC.OscMessage> { }
 }

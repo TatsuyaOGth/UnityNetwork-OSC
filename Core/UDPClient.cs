@@ -36,6 +36,7 @@ namespace Ogsn.Network.Core
         IPEndPoint _targetEndPoint;
         CancellationTokenSource _cancellationTokenSource;
 
+        
         public void Connect(string host, int port)
         {
             if (IsConnected)

@@ -99,7 +99,6 @@ namespace Ogsn.Network.Core
         {
             // get stream to remote host
             using var stream = remoteClient.GetStream();
-            //stream.ReadTimeout = 1000;
 
             byte[] buffer = new byte[remoteClient.ReceiveBufferSize];
 

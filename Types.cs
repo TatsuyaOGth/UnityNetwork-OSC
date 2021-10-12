@@ -11,10 +11,8 @@ namespace Ogsn.Network
     public enum ClientEventType
     {
         Undefined,
-        ConnectionRequested,
         Connecting,
         Connected,
-        DisconnectionRequested,
         Disconnecting,
         Disconnected,
         Sended,
