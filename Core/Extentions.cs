@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Ogsn
+namespace Ogsn.Network.Core
 {
     public static class Extentions
     {
@@ -15,6 +15,7 @@ namespace Ogsn
         public static string ToStringAsHex(this byte[] bytes)
         {
             var sb = new StringBuilder(bytes.Length * 2);
+            sb.Append("0x");
             for (int i = 0; i < bytes.Length; i++)
             {
                 sb.Append($"{bytes[i]:X2}");

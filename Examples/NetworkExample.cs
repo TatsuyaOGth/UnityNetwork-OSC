@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using Ogsn.Network;
 
 namespace Ogsn.Network.Example
 {
@@ -13,7 +14,12 @@ namespace Ogsn.Network.Example
 
         public InputField SendMessageInput;
 
+        public Text ReceivedMessage;
+
         public Text LogText;
+
+
+        // Connect and disconnect the sender on a script
 
         public void SenderConnect()
         {
@@ -25,12 +31,9 @@ namespace Ogsn.Network.Example
             Sender.Disconnect();
         }
 
-        public void Send()
-        {
-            Sender.Send(SendMessageInput.text, System.Text.Encoding.ASCII);
-        }
 
 
+        // Open and close the receiver on a script
 
         public void ReceiverOpen()
         {
@@ -44,7 +47,46 @@ namespace Ogsn.Network.Example
 
 
 
-        // Log
+
+        // Data sending
+
+        public void Send()
+        {
+            // Send string with encoding
+            Sender.Send(SendMessageInput.text, System.Text.Encoding.ASCII);
+
+            // Send byte[]
+            /*
+            byte[] data = System.Text.Encoding.ASCII.GetBytes(SendMessageInput.text);
+            Sender.Send(data);
+            */
+        }
+
+
+
+
+        // Data receiving
+
+        // - Pull style (you need set 'Update Type == None' to the receiver)
+        private void Update()
+        {
+            if (Receiver.HasReceivedData)
+            {
+                var data = Receiver.GetNextData();
+                ReceivedMessage.text = System.Text.Encoding.ASCII.GetString(data);
+            }
+        }
+
+        // - Push style (you need set 'Update Type != None' to the receiver)
+        public void OnReceivedData(byte[] data)
+        {
+            ReceivedMessage.text = System.Text.Encoding.ASCII.GetString(data);
+        }
+
+
+
+
+        // Show log
 
         StringBuilder _sb = new StringBuilder();
 
@@ -59,16 +101,22 @@ namespace Ogsn.Network.Example
                 else
                     _sb.AppendLine($"<color=white>{condition}</color>");
             };
-        }
 
-        private void Update()
-        {
-            LogText.text = _sb.ToString();
+            StartCoroutine(LogToTextCoroutine());
         }
 
         public void ClearLog()
         {
             _sb.Clear();
+        }
+
+        IEnumerator LogToTextCoroutine()
+        {
+            while (Application.isPlaying)
+            {
+                LogText.text = _sb.ToString();
+                yield return null;
+            }
         }
     }
 }

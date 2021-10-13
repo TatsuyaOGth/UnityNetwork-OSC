@@ -145,7 +145,7 @@ namespace Ogsn.Network.OSC
                 Server.ReceiveFunction = OnDataReceived;
             }
 
-            ServerEvent?.Invoke(e.EventType);
+            ServerEvent?.Invoke(e);
         }
     }
 }

@@ -4,10 +4,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Diagnostics;
 
 namespace Ogsn.Network.Core
 {
@@ -86,11 +82,11 @@ namespace Ogsn.Network.Core
             try
             {
                 _udpClient.Send(data, data.Length);
-                NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Sended));
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.DataSended(data));
             }
             catch (Exception exp)
             {
-                NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(exp));
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(data, exp));
                 return false;
             }
 
@@ -105,13 +101,13 @@ namespace Ogsn.Network.Core
                         IPEndPoint remoteEP = null;
                         var res = _udpClient.Receive(ref remoteEP);
                         token.ThrowIfCancellationRequested();
-                        NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
+                        NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseReceived(res));
                         getAction(res);
                     }
                     catch (TaskCanceledException)
                     {
                             // Task was canceled.
-                        }
+                    }
                     catch (Exception exp)
                     {
                         NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseError(exp));

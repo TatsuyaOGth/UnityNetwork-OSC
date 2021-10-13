@@ -15,7 +15,13 @@ namespace Ogsn.Network.Example
         public InputField AddressInput;
         public InputField StringInput;
 
+        public Text ReceivedMessage;
+
         public Text LogText;
+
+
+
+        // Connect and disconnect the sender on a script
 
         public void SenderConnect()
         {
@@ -27,12 +33,9 @@ namespace Ogsn.Network.Example
             Sender.Disconnect();
         }
 
-        public void Send()
-        {
-            Sender.Send(AddressInput.text, StringInput.text);
-        }
 
 
+        // Open and close the receiver on a script
 
         public void ReceiverOpen()
         {
@@ -46,8 +49,52 @@ namespace Ogsn.Network.Example
 
 
 
+        // Data sending
 
-        // Log
+        public void Send()
+        {
+            // Send one string data
+            Sender.Send(AddressInput.text, StringInput.text);
+
+            // Multiple data example
+            /*
+            Sender.Send("/data", 100, 1.2f, "text");
+            */
+
+            // Using OscMessage object example
+            /*
+            var m = new OscMessage();
+            m.Address = "/data";
+            m.Add(100);
+            m.Add(1.2f);
+            m.Add("text");
+            Sender.Send(m);
+            */
+        }
+
+
+
+        // Data receiving
+
+        // - Pull style (you need set 'Update Type == None' to the receiver)
+        private void Update()
+        {
+            if (Receiver.HasReceivedMessages)
+            {
+                var m = Receiver.GetNextMessage();
+                ReceivedMessage.text = $"{m.Address} {m.Get<string>(0)}";
+            }
+        }
+
+        // - Push style (you need set 'Update Type != None' to the receiver)
+        public void OnReceivedMessage(OscMessage m)
+        {
+            ReceivedMessage.text = $"{m.Address} {m.Get<string>(0)}";
+        }
+
+
+
+        // Show log
 
         StringBuilder _sb = new StringBuilder();
 
@@ -62,16 +109,22 @@ namespace Ogsn.Network.Example
                 else
                     _sb.AppendLine($"<color=white>{condition}</color>");
             };
-        }
 
-        private void Update()
-        {
-            LogText.text = _sb.ToString();
+            StartCoroutine(LogToTextCoroutine());
         }
 
         public void ClearLog()
         {
             _sb.Clear();
+        }
+
+        IEnumerator LogToTextCoroutine()
+        {
+            while (Application.isPlaying)
+            {
+                LogText.text = _sb.ToString();
+                yield return null;
+            }
         }
     }
 }

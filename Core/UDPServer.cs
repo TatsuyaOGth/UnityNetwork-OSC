@@ -84,7 +84,7 @@ namespace Ogsn.Network.Core
                         cancelToken.ThrowIfCancellationRequested();
 
                         // notify connected to client
-                        NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.DataReceived));
+                        NotifyServerEvent?.Invoke(this, ServerEventArgs.DataReceived(data));
                     }
                     catch (TaskCanceledException)
                     {
@@ -114,8 +114,7 @@ namespace Ogsn.Network.Core
                         }
                         else
                         {
-                            var e = new Exception($"Socket Exception: code={exp.ErrorCode} {exp.Message}", exp);
-                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(e));
+                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveError(exp));
                         }
                     }
                     catch (ObjectDisposedException)
@@ -138,7 +137,7 @@ namespace Ogsn.Network.Core
                             if (res != null)
                             {
                                 _udpClient.Send(res, res.Length, endPoint);
-                                NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ResponseSended));
+                                NotifyServerEvent?.Invoke(this, ServerEventArgs.ResponseSended(res));
                             }
                         }
                         catch (Exception exp)

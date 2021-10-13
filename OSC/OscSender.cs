@@ -186,8 +186,7 @@ namespace Ogsn.Network.OSC
         protected override void OnClientEventReceived(object sender, ClientEventArgs e)
         {
             base.OnClientEventReceived(sender, e);
-
-            ClientEvent?.Invoke(e.EventType);
+            ClientEvent?.Invoke(e);
         }
     }
 }

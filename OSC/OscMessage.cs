@@ -4,6 +4,8 @@ using System.Text;
 
 namespace Ogsn.Network.OSC
 {
+    using Core;
+
     /// <summary>
     /// OSC Message Class
     /// </summary>
@@ -26,6 +28,11 @@ namespace Ogsn.Network.OSC
         }
 
         public T Get<T>(int index)
+        {
+            return (T)Data.ElementAt(index);
+        }
+
+        public T GetOrDefault<T>(int index)
         {
             return (T)Data.ElementAtOrDefault(index);
         }

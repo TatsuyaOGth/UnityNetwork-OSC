@@ -103,11 +103,11 @@ namespace Ogsn.Network.Core
             try
             {
                 NetworkStreamIO.WriteData(_stream, data, Encoding);
-                NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Sended));
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.DataSended(data));
             }
             catch (Exception exp)
             {
-                NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(exp));
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.SendError(data, exp));
                 return false;
             }
 
@@ -117,7 +117,7 @@ namespace Ogsn.Network.Core
                 try
                 {
                     var res = NetworkStreamIO.ReadData(_stream, Encoding);
-                    NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.ResponseReceived));
+                    NotifyClientEvent?.Invoke(this, ClientEventArgs.ResponseReceived(res));
                     getAction(res);
                 }
                 catch (Exception exp)

@@ -4,10 +4,10 @@ using UnityEngine.Events;
 namespace Ogsn.Network
 {
     [Serializable]
-    public class ClientEventHandler : UnityEvent<ClientEventType> { }
+    public class ClientEventHandler : UnityEvent<ClientEventArgs> { }
 
     [Serializable]
-    public class ServerEventHandler : UnityEvent<ServerEventType> { }
+    public class ServerEventHandler : UnityEvent<ServerEventArgs> { }
 
 
     [Serializable]

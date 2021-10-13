@@ -110,7 +110,7 @@ namespace Ogsn.Network.Core
                 {
                     // read data
                     receivedData = NetworkStreamIO.ReadData(stream, Encoding);
-                    NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.DataReceived));
+                    NotifyServerEvent?.Invoke(this, ServerEventArgs.DataReceived(receivedData));
 
                     // is canccelled?
                     cancelToken.ThrowIfCancellationRequested();
@@ -140,7 +140,6 @@ namespace Ogsn.Network.Core
 
                 try
                 {
-                    // send response
                     if (receivedData != null)
                     {
                         var res = ReceiveFunction?.Invoke(receivedData);
@@ -148,7 +147,7 @@ namespace Ogsn.Network.Core
                         {
                             NetworkStreamIO.WriteData(stream, res, Encoding);
                             stream.Flush();
-                            NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.ResponseSended));
+                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ResponseSended(res));
                         }
                     }
                 }

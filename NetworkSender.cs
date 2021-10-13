@@ -127,7 +127,7 @@ namespace Ogsn.Network
         {
             base.OnClientEventReceived(sender, e);
 
-            ClientEvent?.Invoke(e.EventType);
+            ClientEvent?.Invoke(e);
         }
     }
 }
