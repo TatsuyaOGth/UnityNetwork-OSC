@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Ogsn.Network
 {
@@ -14,7 +14,7 @@ namespace Ogsn.Network
         public Protocol Protocol = Protocol.UDP;
         public InitCallbackType AutoOpen = InitCallbackType.Start;
         public bool CloseOnDisable = true;
-        public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
+        public LogLevels LogLevels = LogLevels.Notice | LogLevels.Warning | LogLevels.Error;
 
         // Properties
         public IServer Server => _server;
@@ -104,7 +104,7 @@ namespace Ogsn.Network
                     case ServerEventType.WaitingForConnection:
                     case ServerEventType.Connected:
                     case ServerEventType.DataReceived:
-                    case ServerEventType.ResponseSended:
+                    case ServerEventType.ResponseSent:
                         Log($"{e.EventType}: Listen port={ListenPort}({Protocol})", LogType.Log, LogLevels.Verbose);
                         break;
 
@@ -114,7 +114,7 @@ namespace Ogsn.Network
                         break;
 
                     case ServerEventType.Disconnected:
-                        Log($"{e.EventType}, {e?.Exception?.Message}: Listen port={ListenPort}({Protocol})", LogType.Warning, LogLevels.Worning);
+                        Log($"{e.EventType}, {e?.Exception?.Message}: Listen port={ListenPort}({Protocol})", LogType.Warning, LogLevels.Warning);
                         break;
 
                     case ServerEventType.ReceiveError:

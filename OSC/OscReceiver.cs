@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -19,6 +19,10 @@ namespace Ogsn.Network.OSC
 
         [Tooltip("Output to console when a message received")]
         public bool ReceiveLog = false;
+        [Tooltip("Maximum queued messages. 0 or less means unlimited.")]
+        public int MaxQueueSize = 0;
+        [Tooltip("When queue is full, drop the oldest message. If false, drop the newly received message.")]
+        public bool DropOldestWhenQueueFull = true;
 
         // Unity Event
         [Header("Event Handler")]
@@ -47,7 +51,7 @@ namespace Ogsn.Network.OSC
 
             if (UpdateType != UpdateCallbackType.None)
             {
-                Log($"[{nameof(OscReceiver)}] The other messages may have been invoked on \"OscMessageReceived\". Set \"UpdateType = None\" to stop this.", LogType.Warning, LogLevels.Worning);
+                Log($"[{nameof(OscReceiver)}] The other messages may have been invoked on \"OscMessageReceived\". Set \"UpdateType = None\" to stop this.", LogType.Warning, LogLevels.Warning);
             }
 
             lock (_lockObj)
@@ -115,6 +119,18 @@ namespace Ogsn.Network.OSC
                     {
                         lock (_lockObj)
                         {
+                            if (MaxQueueSize > 0 && _queue.Count >= MaxQueueSize)
+                            {
+                                if (DropOldestWhenQueueFull)
+                                {
+                                    _queue.Dequeue();
+                                }
+                                else
+                                {
+                                    continue;
+                                }
+                            }
+
                             if (Organize)
                             {
                                 var elm = _queue.FirstOrDefault(e => e.Address == m.Address);

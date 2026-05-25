@@ -1,6 +1,5 @@
 using System;
 using System.Text;
-using System.Linq;
 
 namespace Ogsn.Network.OSC
 {
@@ -19,7 +18,7 @@ namespace Ogsn.Network.OSC
 
         #endregion
 
-        #region Constructer
+        #region Constructor
 
         public OscEncoder(int bufferSize = 8192)
         {
@@ -34,10 +33,10 @@ namespace Ogsn.Network.OSC
         {
             Initialize();
             SetAddress(address);
-            SetTgas(args);
+            SetTags(args);
             foreach (var arg in args)
                 Append(arg);
-            return _buffer.Take(_readPoint).ToArray();
+            return CopyEncodedData();
         }
 
         public byte[] Encode(OscMessage oscMessage)
@@ -68,7 +67,7 @@ namespace Ogsn.Network.OSC
                 Array.Copy(messageBlock, 0, _buffer, _readPoint, messageBlock.Length);
                 _readPoint = _readPoint + messageBlock.Length;
             }
-            return _buffer.Take(_readPoint).ToArray();
+            return CopyEncodedData();
         }
 
         #endregion
@@ -80,12 +79,19 @@ namespace Ogsn.Network.OSC
             _readPoint = 0;
         }
 
+        byte[] CopyEncodedData()
+        {
+            var result = new byte[_readPoint];
+            Buffer.BlockCopy(_buffer, 0, result, 0, _readPoint);
+            return result;
+        }
+
         void SetAddress(string address)
         {
             AppendAsString(address);
         }
 
-        void SetTgas(object[] args)
+        void SetTags(object[] args)
         {
             _stringBuilder.Clear();
             _stringBuilder.Append(",");

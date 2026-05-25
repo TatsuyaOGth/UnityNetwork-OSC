@@ -15,7 +15,7 @@ namespace Ogsn.Network
         Connected,
         Disconnecting,
         Disconnected,
-        Sended,
+        Sent,
         ResponseReceived,
         ConnectionError,
         SendError,
@@ -35,7 +35,7 @@ namespace Ogsn.Network
         Connected,
         Disconnected,
         DataReceived,
-        ResponseSended,
+        ResponseSent,
         ReceiveError,
         ReceiveHandleError,
     }
@@ -63,7 +63,7 @@ namespace Ogsn.Network
         None = 0,
         Verbose = 1,
         Notice = 2,
-        Worning = 4,
+        Warning = 4,
         Error = 8,
     }
 }

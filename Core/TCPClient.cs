@@ -61,6 +61,7 @@ namespace Ogsn.Network.Core
             // set connection status
             _isConnectionIntermittently = true;
             _targetEndPoint = new IPEndPoint(IPAddress.Parse(host), port);
+            _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = new CancellationTokenSource();
 
             // start connection intermittently loop
@@ -72,16 +73,18 @@ namespace Ogsn.Network.Core
         {
             _isConnectionIntermittently = false;
 
-            if (IsConnected == false)
+            bool hadResources = _cancellationTokenSource != null || _tcpClient != null || _stream != null;
+            if (!hadResources)
             {
                 return;
             }
-
 
             NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Disconnecting));
 
             // Stop connection loop thread
             _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
 
             // close stream
             _stream?.Close();
@@ -91,6 +94,7 @@ namespace Ogsn.Network.Core
             _tcpClient?.Close();
             _tcpClient?.Dispose();
             _tcpClient = null;
+            _isConnected = false;
 
             NotifyClientEvent?.Invoke(this, ClientEventArgs.Info(ClientEventType.Disconnected));
         }
@@ -103,7 +107,7 @@ namespace Ogsn.Network.Core
             try
             {
                 NetworkStreamIO.WriteData(_stream, data, Encoding);
-                NotifyClientEvent?.Invoke(this, ClientEventArgs.DataSended(data));
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.DataSent(data));
             }
             catch (Exception exp)
             {
@@ -138,7 +142,7 @@ namespace Ogsn.Network.Core
                     {
                         try
                         {
-                            // Cleate new TCP client instance
+                            // Create new TCP client instance
                             _tcpClient = new TcpClient();
                             await _tcpClient.ConnectAsync(_targetEndPoint.Address, _targetEndPoint.Port);
 

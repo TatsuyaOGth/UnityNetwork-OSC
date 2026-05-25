@@ -20,9 +20,9 @@ namespace Ogsn.Network
             return new ClientEventArgs(type, null, null);
         }
 
-        public static ClientEventArgs DataSended(byte[] data)
+        public static ClientEventArgs DataSent(byte[] data)
         {
-            return new ClientEventArgs(ClientEventType.Sended, data, null);
+            return new ClientEventArgs(ClientEventType.Sent, data, null);
         }
 
         public static ClientEventArgs ResponseReceived(byte[] data)

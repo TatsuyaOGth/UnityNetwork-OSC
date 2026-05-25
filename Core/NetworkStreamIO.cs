@@ -17,13 +17,19 @@ namespace Ogsn.Network.Core
             // read data
             byte[] buffer = new byte[length];
             int readPosition = 0;
-            do
+            while (readPosition < length)
             {
-                var readData = reader.ReadBytes(length);
-                Array.Copy(readData, 0, buffer, readPosition, readData.Length);
+                int remain = length - readPosition;
+                var readData = reader.ReadBytes(remain);
+                if (readData.Length == 0)
+                {
+                    throw new EndOfStreamException("Unexpected end of stream while reading payload.");
+                }
+
+                Buffer.BlockCopy(readData, 0, buffer, readPosition, readData.Length);
                 readPosition += readData.Length;
             }
-            while (readPosition < length);
+
             return buffer;
         }
 

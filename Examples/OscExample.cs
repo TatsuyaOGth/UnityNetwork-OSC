@@ -97,10 +97,11 @@ namespace Ogsn.Network.Example
         // Show log
 
         StringBuilder _sb = new StringBuilder();
+        Application.LogCallback _logCallback;
 
         private void Awake()
         {
-            Application.logMessageReceivedThreaded += (condition, stackTrace, type) =>
+            _logCallback = (condition, stackTrace, type) =>
             {
                 if (type == LogType.Warning)
                     _sb.AppendLine($"<color=yellow>{condition}</color>");
@@ -109,8 +110,18 @@ namespace Ogsn.Network.Example
                 else
                     _sb.AppendLine($"<color=white>{condition}</color>");
             };
+            Application.logMessageReceivedThreaded += _logCallback;
 
             StartCoroutine(LogToTextCoroutine());
+        }
+
+        private void OnDestroy()
+        {
+            if (_logCallback != null)
+            {
+                Application.logMessageReceivedThreaded -= _logCallback;
+                _logCallback = null;
+            }
         }
 
         public void ClearLog()

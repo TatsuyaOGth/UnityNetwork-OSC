@@ -25,9 +25,9 @@ namespace Ogsn.Network
             return new ServerEventArgs(ServerEventType.DataReceived, data, null);
         }
 
-        public static ServerEventArgs ResponseSended(byte[] data)
+        public static ServerEventArgs ResponseSent(byte[] data)
         {
-            return new ServerEventArgs(ServerEventType.ResponseSended, data, null);
+            return new ServerEventArgs(ServerEventType.ResponseSent, data, null);
         }
 
         public static ServerEventArgs Disconnected(Exception exception)

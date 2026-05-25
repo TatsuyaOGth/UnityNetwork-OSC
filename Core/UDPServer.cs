@@ -62,6 +62,7 @@ namespace Ogsn.Network.Core
             NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Opened));
 
             // start receive thread
+            _cancelTokenSource?.Dispose();
             _cancelTokenSource = new CancellationTokenSource();
             var cancelToken = _cancelTokenSource.Token;
 
@@ -80,7 +81,7 @@ namespace Ogsn.Network.Core
                         //NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.WaitingForConnection));
                         data  = _udpClient.Receive(ref endPoint);
 
-                        // is canccelled?
+                        // is cancelled?
                         cancelToken.ThrowIfCancellationRequested();
 
                         // notify connected to client
@@ -103,7 +104,7 @@ namespace Ogsn.Network.Core
                         }
                         else if (exp.ErrorCode == WSAETIMEDOUT)
                         {
-                            /* throgh this exception because this mean receiver timeouted. */
+                            /* through this exception because this mean receiver timeouted. */
                             continue;
                         }
                         else if (exp.ErrorCode == WSAENOTSOCK || exp.ErrorCode == WSAENOTCONN)
@@ -137,7 +138,7 @@ namespace Ogsn.Network.Core
                             if (res != null)
                             {
                                 _udpClient.Send(res, res.Length, endPoint);
-                                NotifyServerEvent?.Invoke(this, ServerEventArgs.ResponseSended(res));
+                                NotifyServerEvent?.Invoke(this, ServerEventArgs.ResponseSent(res));
                             }
                         }
                         catch (Exception exp)
@@ -165,11 +166,18 @@ namespace Ogsn.Network.Core
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Closing));
 
                 // stop receive thread
-                _cancelTokenSource.Cancel();
-                //_receiveTask.Wait();
+                _cancelTokenSource?.Cancel();
                 _udpClient.Close();
                 _udpClient.Dispose();
                 _udpClient = null;
+                if (_receiveTask != null && Task.CurrentId != _receiveTask.Id)
+                {
+                    _receiveTask.Wait(500);
+                }
+                _receiveTask?.Dispose();
+                _receiveTask = null;
+                _cancelTokenSource?.Dispose();
+                _cancelTokenSource = null;
 
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Closed));
             }

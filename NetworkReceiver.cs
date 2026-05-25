@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,6 +15,10 @@ namespace Ogsn.Network
 
         [Tooltip("Output to console when a message received")]
         public bool ReceiveLog = false;
+        [Tooltip("Maximum queued messages. 0 or less means unlimited.")]
+        public int MaxQueueSize = 0;
+        [Tooltip("When queue is full, drop the oldest message. If false, drop the newly received message.")]
+        public bool DropOldestWhenQueueFull = true;
 
         // Unity Event
         [Header("Event Handler")]
@@ -41,7 +45,7 @@ namespace Ogsn.Network
 
             if (UpdateType != UpdateCallbackType.None)
             {
-                Log($"[{nameof(NetworkReceiver)}] The other messages may have been invoked on \"DataReceived\". Set \"UpdateType = None\" to stop this.", LogType.Warning, LogLevels.Worning);
+                Log($"[{nameof(NetworkReceiver)}] The other messages may have been invoked on \"DataReceived\". Set \"UpdateType = None\" to stop this.", LogType.Warning, LogLevels.Warning);
             }
 
             lock (_lockObj)
@@ -106,6 +110,17 @@ namespace Ogsn.Network
                 {
                     lock (_lockObj)
                     {
+                        if (MaxQueueSize > 0 && _queue.Count >= MaxQueueSize)
+                        {
+                            if (DropOldestWhenQueueFull)
+                            {
+                                _queue.Dequeue();
+                            }
+                            else
+                            {
+                                return null;
+                            }
+                        }
                         _queue.Enqueue(data);
                     }
                 }
