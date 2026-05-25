@@ -13,6 +13,7 @@ namespace Ogsn.Network.OSC
         #region Internal data
 
         readonly List<OscMessage> _messageList = new List<OscMessage>(256);
+        readonly byte[] _floatBuffer = new byte[4];
         byte[] _readBuffer;
         int _readPoint;
 
@@ -97,14 +98,12 @@ namespace Ogsn.Network.OSC
 
         float ReadFloat32()
         {
-            byte[] temp = {
-                _readBuffer [_readPoint + 3],
-                _readBuffer [_readPoint + 2],
-                _readBuffer [_readPoint + 1],
-                _readBuffer [_readPoint]
-            };
+            _floatBuffer[0] = _readBuffer[_readPoint + 3];
+            _floatBuffer[1] = _readBuffer[_readPoint + 2];
+            _floatBuffer[2] = _readBuffer[_readPoint + 1];
+            _floatBuffer[3] = _readBuffer[_readPoint];
             _readPoint += 4;
-            return BitConverter.ToSingle(temp, 0);
+            return BitConverter.ToSingle(_floatBuffer, 0);
         }
 
         int ReadInt32()

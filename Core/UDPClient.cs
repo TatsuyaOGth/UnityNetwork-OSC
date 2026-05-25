@@ -44,6 +44,7 @@ namespace Ogsn.Network.Core
             _targetEndPoint = new IPEndPoint(IPAddress.Parse(host), port);
             _udpClient = new UdpClient();
             _udpClient.Connect(_targetEndPoint);
+            _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = new CancellationTokenSource();
 
             // Set response receive timeout
@@ -63,6 +64,8 @@ namespace Ogsn.Network.Core
             if (_cancellationTokenSource != null)
             {
                 _cancellationTokenSource.Cancel();
+                _cancellationTokenSource.Dispose();
+                _cancellationTokenSource = null;
             }
 
             // close and dispose client
@@ -82,7 +85,7 @@ namespace Ogsn.Network.Core
             try
             {
                 _udpClient.Send(data, data.Length);
-                NotifyClientEvent?.Invoke(this, ClientEventArgs.DataSended(data));
+                NotifyClientEvent?.Invoke(this, ClientEventArgs.DataSent(data));
             }
             catch (Exception exp)
             {

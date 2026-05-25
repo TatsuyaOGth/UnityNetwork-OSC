@@ -31,7 +31,8 @@ namespace Ogsn.Network.Core
 
         TcpListener _tcpListener;
         Task _receiveTask;
-        List<Task> _streamingTasks = new List<Task>();
+        readonly List<Task> _streamingTasks = new List<Task>();
+        readonly object _streamingTasksLock = new object();
         CancellationTokenSource _cancelTokenSource;
 
 
@@ -57,6 +58,7 @@ namespace Ogsn.Network.Core
             NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Opened));
 
             // start receive thread
+            _cancelTokenSource?.Dispose();
             _cancelTokenSource = new CancellationTokenSource();
             _receiveTask = Task.Run(() => ReceiveTask(_cancelTokenSource.Token));
         }
@@ -68,26 +70,39 @@ namespace Ogsn.Network.Core
                 NotifyServerEvent?.Invoke(this, ServerEventArgs.Info(ServerEventType.Closing));
 
                 _cancelTokenSource?.Cancel();
+                _cancelTokenSource?.Dispose();
+                _cancelTokenSource = null;
 
                 // waiting for streaming thread end
-                if (_streamingTasks.Count > 0)
+                Task[] streamingTasks;
+                lock (_streamingTasksLock)
+                {
+                    streamingTasks = _streamingTasks.ToArray();
+                }
+                if (streamingTasks.Length > 0)
                 {
                     try
                     {
-                        Task.WaitAll(_streamingTasks.ToArray(), 1000);
-                        _streamingTasks.ForEach(task => task.Dispose());
-                        _streamingTasks.Clear();
+                        Task.WaitAll(streamingTasks, 1000);
                     }
                     catch (Exception exp)
                     {
                         NotifyServerEvent?.Invoke(this, ServerEventArgs.Disconnected(exp));
                     }
+                    finally
+                    {
+                        lock (_streamingTasksLock)
+                        {
+                            _streamingTasks.ForEach(task => task.Dispose());
+                            _streamingTasks.Clear();
+                        }
+                    }
                 }
 
                 // waiting for receiver thread end
                 _tcpListener?.Stop();
-                _receiveTask.Wait();
-                _receiveTask.Dispose();
+                _receiveTask?.Wait();
+                _receiveTask?.Dispose();
                 _receiveTask = null;
                 _tcpListener = null;
 
@@ -97,10 +112,10 @@ namespace Ogsn.Network.Core
 
         void StreamingTask(TcpClient remoteClient, CancellationToken cancelToken)
         {
+            using (remoteClient)
+            {
             // get stream to remote host
             using var stream = remoteClient.GetStream();
-
-            byte[] buffer = new byte[remoteClient.ReceiveBufferSize];
 
             while (cancelToken.IsCancellationRequested == false)
             {
@@ -112,7 +127,7 @@ namespace Ogsn.Network.Core
                     receivedData = NetworkStreamIO.ReadData(stream, Encoding);
                     NotifyServerEvent?.Invoke(this, ServerEventArgs.DataReceived(receivedData));
 
-                    // is canccelled?
+                    // is cancelled?
                     cancelToken.ThrowIfCancellationRequested();
                 }
                 catch (TaskCanceledException)
@@ -147,7 +162,7 @@ namespace Ogsn.Network.Core
                         {
                             NetworkStreamIO.WriteData(stream, res, Encoding);
                             stream.Flush();
-                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ResponseSended(res));
+                            NotifyServerEvent?.Invoke(this, ServerEventArgs.ResponseSent(res));
                         }
                     }
                 }
@@ -158,6 +173,7 @@ namespace Ogsn.Network.Core
 
                     NotifyServerEvent?.Invoke(this, ServerEventArgs.ReceiveHandleError(exp));
                 }
+            }
             }
         }
 
@@ -182,7 +198,11 @@ namespace Ogsn.Network.Core
 
                     // start new streaming task
                     var streamingTask = Task.Run(() => StreamingTask(remoteClient, cancelToken), cancelToken);
-                    _streamingTasks.Add(streamingTask);
+                    lock (_streamingTasksLock)
+                    {
+                        _streamingTasks.Add(streamingTask);
+                        _streamingTasks.RemoveAll(task => task.IsCompleted);
+                    }
                 }
                 catch (SocketException exp)
                 {

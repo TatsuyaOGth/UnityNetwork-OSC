@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
@@ -88,7 +88,7 @@ namespace Ogsn.Network
                     break;
 
                 default:
-                    Log($"Schedule type is '{schedule}', no sending", LogType.Warning, LogLevels.Worning);
+                    Log($"Schedule type is '{schedule}', no sending", LogType.Warning, LogLevels.Warning);
                     break;
             }
         }

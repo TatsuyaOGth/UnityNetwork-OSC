@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -19,7 +19,7 @@ namespace Ogsn.Network
         public Protocol Protocol = Protocol.UDP;
         public InitCallbackType AutoConnection = InitCallbackType.Start;
         public bool DisconnectOnDisable = true;
-        public LogLevels LogLevels = LogLevels.Notice | LogLevels.Worning | LogLevels.Error;
+        public LogLevels LogLevels = LogLevels.Notice | LogLevels.Warning | LogLevels.Error;
 
         // Properties
         public IClient Client => _client;
@@ -130,7 +130,7 @@ namespace Ogsn.Network
                         Log($"{e.EventType}: Host={SendHost}:{SendPort}({Protocol})", LogType.Log, LogLevels.Verbose);
                         break;
 
-                    case ClientEventType.Sended:
+                    case ClientEventType.Sent:
                     case ClientEventType.ResponseReceived:
                         Log($"{e.EventType}: Host={SendHost}:{SendPort}({Protocol})", LogType.Log, LogLevels.Verbose);
                         break;
@@ -141,7 +141,7 @@ namespace Ogsn.Network
                         break;
 
                     case ClientEventType.ConnectionError:
-                        Log($"{e.EventType}: Host={SendHost}:{SendPort}({Protocol})", LogType.Warning, LogLevels.Worning);
+                        Log($"{e.EventType}: Host={SendHost}:{SendPort}({Protocol})", LogType.Warning, LogLevels.Warning);
                         break;
 
                     case ClientEventType.SendError:
